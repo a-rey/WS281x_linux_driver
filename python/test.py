@@ -1,8 +1,10 @@
 # simple script for auto testing of the kernel module
 
+import subprocess
+
 print "return code: ", subprocess.call(["insmod", "../neopixel.ko"])
 
-f = open('/dev/neopixel', 'w')
+f = open('/dev/neopixel', 'r+')
 f.read()
 f.write("test")
 f.close()

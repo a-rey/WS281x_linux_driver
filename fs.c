@@ -48,7 +48,7 @@ int init_fs(void) {
   class_ptr = class_create(THIS_MODULE, CLASS_NAME);
   if (IS_ERR(class_ptr)) {
     unregister_chrdev(major_num, DRIVER_NAME);
-    printk(KERN_ALERT "[%s] error in class_create: %d\n", DRIVER_NAME, PTR_ERR(class_ptr));
+    printk(KERN_ALERT "[%s] error in class_create: %ld\n", DRIVER_NAME, PTR_ERR(class_ptr));
     return PTR_ERR(class_ptr);
   }
   printk(KERN_INFO "[%s] class_create successful\n", DRIVER_NAME);
@@ -58,7 +58,7 @@ int init_fs(void) {
   if (IS_ERR(device_ptr)) {
     class_destroy(class_ptr);
     unregister_chrdev(major_num, DRIVER_NAME);
-    printk(KERN_ALERT "[%s] error in device_create: %d\n", DRIVER_NAME, PTR_ERR(device_ptr));
+    printk(KERN_ALERT "[%s] error in device_create: %ld\n", DRIVER_NAME, PTR_ERR(device_ptr));
     return PTR_ERR(device_ptr);
   }
   printk(KERN_INFO "[%s] device_create successful\n", DRIVER_NAME);
