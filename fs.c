@@ -8,10 +8,17 @@
 
 #include <linux/fs.h>     /* needed for file_operations */
 #include <linux/kernel.h> /* needed for printk */
+#include <linux/module.h> /* needed for get/put_module */
 
 #include "neopixel.h"     /* needed for module info */
 
 static int major_num;     /* the major number for this driver */
+
+/* file system function signatures */
+static int fs_open(struct inode *inode, struct file *file);
+static int fs_release(struct inode *inode, struct file *file);
+static ssize_t fs_read(struct file *filp, char *buff, size_t len, loff_t * offset);
+static ssize_t fs_write(struct file *filp, const char *buff, size_t len, loff_t * offset);
 
 /* file system function hooks */
 static struct file_operations fops = {
@@ -33,10 +40,7 @@ int init_fs(void) {
 
 
 void cleanup_fs(void) {
-  int ret = unregister_chrdev(major_num, DRIVER_NAME);
-  if (ret < 0) {
-    printk(KERN_ALERT "[%s] error in unregister_chrdev: %d\n", DRIVER_NAME, ret);
-  }
+  unregister_chrdev(major_num, DRIVER_NAME);
 }
 
 

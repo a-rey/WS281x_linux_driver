@@ -6,9 +6,9 @@
  * Aaron Reyes
  */
 
-#include <linux/module.h> /* Needed by all modules */
-#include <linux/kernel.h> /* Needed for printk */
-#include <linux/init.h>   /* Needed for the macros */
+#include <linux/module.h> /* needed by all modules */
+#include <linux/kernel.h> /* needed for printk */
+#include <linux/init.h>   /* needed for the macros */
 
 #include "fs.h"           /* needed for fs interface */
 #include "neopixel.h"     /* needed for module info */
