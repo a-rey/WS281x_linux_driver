@@ -10,6 +10,7 @@
 #define _NEOPIXEL_H_
 
 #define DRIVER_NAME    "neopixel"
+#define DRIVER_VERSION "0.1"
 #define DRIVER_AUTHOR  "Aaron Reyes"
 #define DRIVER_DESC    "A driver for Adafruit neopixels"
 #define DRIVER_LICENSE "Dual MIT/GPL"

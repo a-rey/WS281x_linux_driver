@@ -6,13 +6,19 @@
  * Aaron Reyes
  */
 
-#include <linux/fs.h>     /* needed for file_operations */
-#include <linux/kernel.h> /* needed for printk */
-#include <linux/module.h> /* needed for get/put_module */
+#include <linux/fs.h>     /* for file_operations */
+#include <linux/err.h>    /* for error checking functions like IS_ERR() */
+#include <linux/device.h> /* for device_create/destroy */
+#include <linux/kernel.h> /* for printk */
+#include <linux/module.h> /* for get/put_module */
 
-#include "neopixel.h"     /* needed for module info */
+#include "neopixel.h"     /* for module info */
 
-static int major_num;     /* the major number for this driver */
+#define CLASS_NAME "adafruit"
+
+static int major_num;             /* the major number for this driver */
+static struct class* class_ptr;   /* device driver class struct pointer */
+static struct device* device_ptr; /* device driver device struct pointer */
 
 /* file system function signatures */
 static int fs_open(struct inode *inode, struct file *file);
@@ -30,16 +36,40 @@ static struct file_operations fops = {
 
 
 int init_fs(void) {
+  // dynamically get a major number
   major_num = register_chrdev(0, DRIVER_NAME, &fops);
   if (major_num < 0) {
     printk(KERN_ALERT "[%s] error in register_chrdev: %d\n", DRIVER_NAME, major_num);
     return major_num;
   }
+  printk(KERN_INFO "[%s] register_chrdev successful with major number %d\n", DRIVER_NAME, major_num);
+
+  // register the device class
+  class_ptr = class_create(THIS_MODULE, CLASS_NAME);
+  if (IS_ERR(class_ptr)) {
+    unregister_chrdev(major_num, DRIVER_NAME);
+    printk(KERN_ALERT "[%s] error in class_create: %d\n", DRIVER_NAME, PTR_ERR(class_ptr));
+    return PTR_ERR(class_ptr);
+  }
+  printk(KERN_INFO "[%s] class_create successful\n", DRIVER_NAME);
+
+  // register the device driver
+  device_ptr = device_create(class_ptr, NULL, MKDEV(major_num, 0), NULL, DRIVER_NAME);
+  if (IS_ERR(device_ptr)) {
+    class_destroy(class_ptr);
+    unregister_chrdev(major_num, DRIVER_NAME);
+    printk(KERN_ALERT "[%s] error in device_create: %d\n", DRIVER_NAME, PTR_ERR(device_ptr));
+    return PTR_ERR(device_ptr);
+  }
+  printk(KERN_INFO "[%s] device_create successful\n", DRIVER_NAME);
   return 0;
 }
 
 
 void cleanup_fs(void) {
+  device_destroy(class_ptr, MKDEV(major_num, 0));
+  class_unregister(class_ptr);
+  class_destroy(class_ptr);
   unregister_chrdev(major_num, DRIVER_NAME);
 }
 

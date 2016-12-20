@@ -6,12 +6,12 @@
  * Aaron Reyes
  */
 
-#include <linux/module.h> /* needed by all modules */
-#include <linux/kernel.h> /* needed for printk */
-#include <linux/init.h>   /* needed for the macros */
+#include <linux/module.h> /* for module_init/exit */
+#include <linux/kernel.h> /* for printk */
+#include <linux/init.h>   /* for __init/exit */
 
-#include "fs.h"           /* needed for fs interface */
-#include "neopixel.h"     /* needed for module info */
+#include "fs.h"           /* for fs interface */
+#include "neopixel.h"     /* for MODULE_* macros */
 
 
 /*
@@ -41,6 +41,7 @@ static void __exit cleanup(void) {
 module_init(init);
 module_exit(cleanup);
 
-MODULE_LICENSE(DRIVER_LICENSE);
 MODULE_AUTHOR(DRIVER_AUTHOR);
+MODULE_VERSION(DRIVER_VERSION);
+MODULE_LICENSE(DRIVER_LICENSE);
 MODULE_DESCRIPTION(DRIVER_DESC);
