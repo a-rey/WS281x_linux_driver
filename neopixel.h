@@ -15,4 +15,7 @@
 #define DRIVER_DESC    "A driver for Adafruit neopixels"
 #define DRIVER_LICENSE "Dual MIT/GPL"
 
+/* signal rate of the pixels */
+#define WS2812_RATE    800000 // Hz
+
 #endif /* _NEOPIXEL_H_ */

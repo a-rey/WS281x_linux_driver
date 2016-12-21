@@ -13,6 +13,7 @@
 #include <linux/module.h> /* for get/put_module */
 
 #include "neopixel.h"     /* for module info */
+#include "BCM2835.h"      /* for pwm functions */
 
 #define CLASS_NAME "adafruit"
 
@@ -79,6 +80,7 @@ void cleanup_fs(void) {
  */
 static int fs_open(struct inode *inode, struct file *file) {
   try_module_get(THIS_MODULE);
+  start_pwm();
   printk(KERN_INFO "[%s] device opened\n", DRIVER_NAME);
   return 0;
 }
@@ -89,6 +91,7 @@ static int fs_open(struct inode *inode, struct file *file) {
  */
 static int fs_release(struct inode *inode, struct file *file) {
   module_put(THIS_MODULE);
+  stop_pwm();
   printk(KERN_INFO "[%s] device closed\n", DRIVER_NAME);
   return 0;
 }
