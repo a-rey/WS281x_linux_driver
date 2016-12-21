@@ -2,11 +2,13 @@
 
 import subprocess
 
-print "return code: ", subprocess.call(["insmod", "../neopixel.ko"])
+print "return code: ", subprocess.call(["insmod", "neopixel.ko"])
 
 f = open('/dev/neopixel', 'r+')
-f.read()
-f.write("test")
+
+for x in xrange(1,1000000):
+  pass
+
 f.close()
 
 subprocess.call(["rmmod", "neopixel.ko"])

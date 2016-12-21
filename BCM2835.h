@@ -17,9 +17,48 @@
 /* rate of the oscillator crystal is 19.2MHz */
 #define OSC_FREQ 19200000 // hz
 
-/* PWM clock manager MMIO registers virtual addresses */
-#define CM_PWM_CTL (volatile uint32_t*)(0x7E1010A0)
-#define CM_PWM_DIV (volatile uint32_t*)(0x7E1010A4)
+/* memory mapping specification for GPIO registers */
+#define GPIO_BASE 0x20200000
+#define GPIO_SIZE (40 * sizeof(uint32_t))
+
+/* MMIO offsets for GPIO registers */
+#define GPIO_GPFSEL0   0
+#define GPIO_GPFSEL1   1
+#define GPIO_GPFSEL2   2
+#define GPIO_GPFSEL3   3
+#define GPIO_GPFSEL4   4
+#define GPIO_GPFSEL5   5
+#define GPIO_GPSET0    7
+#define GPIO_GPSET1    8
+#define GPIO_GPCLR0    10
+#define GPIO_GPCLR1    11
+#define GPIO_GPLEV0    13
+#define GPIO_GPLEV1    14
+#define GPIO_GPEDS0    16
+#define GPIO_GPEDS1    17
+#define GPIO_GPREN0    19
+#define GPIO_GPREN1    20
+#define GPIO_GPFEN0    22
+#define GPIO_GPFEN1    23
+#define GPIO_GPHEN0    25
+#define GPIO_GPHEN1    26
+#define GPIO_GPLEN0    28
+#define GPIO_GPLEN1    29
+#define GPIO_GPAREN0   31
+#define GPIO_GPAREN1   32
+#define GPIO_GPAFEN0   34
+#define GPIO_GPAFEN1   35
+#define GPIO_GPPUD     37
+#define GPIO_GPPUDCLK0 38
+#define GPIO_GPPUDCLK1 39
+
+/* memory mapping specification for clock manager registers */
+#define CM_BASE 0x201010A0
+#define CM_SIZE (2 * sizeof(uint32_t))
+
+/* MMIO offsets for clock manager registers */
+#define CM_PWM_CTL 0
+#define CM_PWM_DIV 1
 
 /* PWM clock manager register masks */
 #define CM_PWM_CTL_PASSWD      (0x5A << 24)
@@ -40,15 +79,19 @@
 #define CM_PWM_DIV_DIVI(x)     ((x & 0xFFF) << 12)
 #define CM_PWM_DIV_DIVF(x)     ((x & 0xFFF) << 0)
 
-/* PWM MMIO registers virtual addresses */
-#define PWM_CTL  (volatile uint32_t*)(0x7E20C000)
-#define PWM_STA  (volatile uint32_t*)(0x7E20C004)
-#define PWM_DMAC (volatile uint32_t*)(0x7E20C008)
-#define PWM_RNG1 (volatile uint32_t*)(0x7E20C010)
-#define PWM_DAT1 (volatile uint32_t*)(0x7E20C014)
-#define PWM_FIF1 (volatile uint32_t*)(0x7E20C018)
-#define PWM_RNG2 (volatile uint32_t*)(0x7E20C020)
-#define PWM_DAT2 (volatile uint32_t*)(0x7E20C024)
+/* memory mapping specification for PWM registers */
+#define PWM_BASE 0x2020C000
+#define PWM_SIZE (10 * sizeof(uint32_t))
+
+/* MMIO offsets for PWM registers */
+#define PWM_CTL  0
+#define PWM_STA  1
+#define PWM_DMAC 2
+#define PWM_RNG1 4
+#define PWM_DAT1 5
+#define PWM_FIF1 6
+#define PWM_RNG2 8
+#define PWM_DAT2 9
 
 /* PWM register masks */
 #define PWM_CTL_MSEN2     (1 << 15)
@@ -82,6 +125,16 @@
 #define PWM_DMAC_ENAB     (1 << 31)
 #define PWM_DMAC_PANIC(x) ((x & 0xFF) << 8)
 #define PWM_DMAC_DREQ(x)  ((x & 0xFF) << 0)
+
+/*
+ * map all required hardware IO addresses into the virtual memory of this module
+ */
+void map_io(void);
+
+/*
+ * unmap all used hardware IO addresses from the virtual memory of this module
+ */
+void unmap_io(void);
 
 /*
  * starts the PWM signal needed to drive the neopixels

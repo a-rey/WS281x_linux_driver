@@ -11,77 +11,80 @@
  * Aaron Reyes
  */
 
-#include <linux/io.h>    /* for read/write memory barrier operations */
-#include <linux/delay.h> /* for udelay() */
+#include <linux/kernel.h>  /* for printk */
+#include <linux/delay.h>   /* for udelay() */
+#include <asm/io.h>        /* for read/write memory barrier operations */
 
-#include "BCM2835.h"     /* for hardware specific addresses */
-#include "neopixel.h"    /* for WS2812_RATE */
+#include "BCM2835.h"      /* for hardware specific addresses */
+#include "neopixel.h"     /* for WS2812_RATE */
 
 /* GPIO pin numbers for PWM output */
-#define PWM0_PIN_NUM 12
-#define PWM1_PIN_NUM 13
+#define PWM0_PIN_NUM 18
+#define PWM0_PIN_FUN 5
 
-/* base of the GPIO register array */
-#define GPIO_BASE  (volatile uint32_t*)(0x7E200000)
+/* structure pointers for MMIO operations */
+static volatile uint32_t *CM;
+static volatile uint32_t *PWM;
+static volatile uint32_t *GPIO;
 
-/* values for fun argument to gpio_config() */
-#define GPIO_FUN_ALT0 4 /* GPIO Function Select 0 */
-#define GPIO_FUN_ALT1 5 /* GPIO Function Select 1 */
-#define GPIO_FUN_ALT2 6 /* GPIO Function Select 2 */
-#define GPIO_FUN_ALT3 7 /* GPIO Function Select 3 */
-#define GPIO_FUN_ALT4 3 /* GPIO Function Select 4 */
-#define GPIO_FUN_ALT5 2 /* GPIO Function Select 5 */
 
-/*
- * Called to configure a GPIO pin to a certain function
- *
- * pin - the GPIO pin number to set
- * fun - the function for the GPIO pin
- */
-static void gpio_config(uint32_t pin, uint32_t fun) {
-  // get the offset into memory mapped GPIO
-  uint32_t reg = pin / 10;
-  // get contents of correct GPIO_REG_GPFSEL register
-  uint32_t config = readl(GPIO_BASE + (4 * reg));
-  // get the bit offset into the GPIO_REG_GPFSEL register
-  uint32_t offset = (pin % 10) * 3;
-  config &= ~(0x7 << offset);
-  config |= (fun << offset);
-  // write the new config back
-  writel(config, GPIO_BASE + (4 * reg));
+void map_io(void) {
+  CM = (volatile uint32_t *)ioremap(CM_BASE, CM_SIZE);
+  PWM = (volatile uint32_t *)ioremap(PWM_BASE, PWM_SIZE);
+  GPIO = (volatile uint32_t *)ioremap(GPIO_BASE, GPIO_SIZE);
+}
+
+
+void unmap_io(void) {
+  iounmap(CM);
+  iounmap(PWM);
+  iounmap(GPIO);
 }
 
 
 int start_pwm(void) {
+  // configure GPIO pin to the correct function for PWM output
+  uint32_t mapping[] = {4, 5, 6, 7, 3, 2};
+  uint32_t reg = PWM0_PIN_NUM / 10;
+  uint32_t config = ioread32(GPIO + reg);
+  config &= ~(0x7 << ((PWM0_PIN_NUM % 10) * 3));
+  config |= (mapping[PWM0_PIN_FUN] << ((PWM0_PIN_NUM % 10) * 3));
+  iowrite32(config, GPIO + reg);
+
   // stop the clock if it is in use
   stop_pwm();
   // setup the PWM clock manager to 3 x WS2812_RATE
-  writel(CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (3 * WS2812_RATE)), CM_PWM_DIV);
+  iowrite32(CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (3 * WS2812_RATE)), CM + CM_PWM_DIV);
   // source the PWM clock from the oscillator and enable it
-  writel(CM_PWM_CTL_PASSWD | CM_PWM_CTL_SRC_OSC | CM_PWM_CTL_ENAB, CM_PWM_CTL);
+  iowrite32(CM_PWM_CTL_PASSWD | CM_PWM_CTL_SRC_OSC | CM_PWM_CTL_ENAB, CM + CM_PWM_CTL);
   // wait for PWM clock manager to settle
-  while (!(readl(CM_PWM_CTL) & CM_PWM_CTL_BUSY));
+  while (!(ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_BUSY));
+
   // configure 32 bit period transfers for both channels
-  writel(32, PWM_RNG1);
-  writel(32, PWM_RNG2);
+  iowrite32(32, PWM + PWM_RNG1);
+  udelay(10);
+  iowrite32(32, PWM + PWM_RNG2);
+  udelay(10);
+
   // write some data to send
-  writel(0x7F, PWM_DAT1); // blue
-  writel(0x7F, PWM_DAT2); // blue
+  iowrite32(0xFFFF << 8, PWM + PWM_DAT1); // purple
+  udelay(10);
+  iowrite32(0xFFFF << 8, PWM + PWM_DAT2); // purple
+  udelay(10);
+
   // configure both PWM channels to send data serially out of the data register
-  writel(PWM_CTL_MODE2 | PWM_CTL_PWEN2 | PWM_CTL_MODE1 | PWM_CTL_PWEN1, PWM_CTL);
-  // configure GPIO pins
-  gpio_config(PWM0_PIN_NUM, GPIO_FUN_ALT0);
-  gpio_config(PWM1_PIN_NUM, GPIO_FUN_ALT0);
+  iowrite32(PWM_CTL_MODE2 | PWM_CTL_PWEN2 | PWM_CTL_MODE1 | PWM_CTL_PWEN1, PWM + PWM_CTL);
+  udelay(10);
   return 0;
 }
 
 
 void stop_pwm(void) {
   // turn off PWM
-  writel(0, PWM_CTL);
+  iowrite32(0, PWM + PWM_CTL);
   // turn off the clock
-  writel(CM_PWM_CTL_PASSWD, CM_PWM_CTL);
+  iowrite32(CM_PWM_CTL_PASSWD, CM + CM_PWM_CTL);
   // wait for reset to complete
-  while (!(readl(CM_PWM_CTL) & CM_PWM_CTL_BUSY));
+  while (!(ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_BUSY));
 }
 

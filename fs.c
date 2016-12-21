@@ -43,7 +43,6 @@ int init_fs(void) {
     printk(KERN_ALERT "[%s] error in register_chrdev: %d\n", DRIVER_NAME, major_num);
     return major_num;
   }
-  printk(KERN_INFO "[%s] register_chrdev successful with major number %d\n", DRIVER_NAME, major_num);
 
   // register the device class
   class_ptr = class_create(THIS_MODULE, CLASS_NAME);
@@ -52,7 +51,6 @@ int init_fs(void) {
     printk(KERN_ALERT "[%s] error in class_create: %ld\n", DRIVER_NAME, PTR_ERR(class_ptr));
     return PTR_ERR(class_ptr);
   }
-  printk(KERN_INFO "[%s] class_create successful\n", DRIVER_NAME);
 
   // register the device driver
   device_ptr = device_create(class_ptr, NULL, MKDEV(major_num, 0), NULL, DRIVER_NAME);
@@ -62,7 +60,7 @@ int init_fs(void) {
     printk(KERN_ALERT "[%s] error in device_create: %ld\n", DRIVER_NAME, PTR_ERR(device_ptr));
     return PTR_ERR(device_ptr);
   }
-  printk(KERN_INFO "[%s] device_create successful\n", DRIVER_NAME);
+  printk(KERN_INFO "[%s] device registered with major number %d\n", DRIVER_NAME, major_num);
   return 0;
 }
 
@@ -80,6 +78,7 @@ void cleanup_fs(void) {
  */
 static int fs_open(struct inode *inode, struct file *file) {
   try_module_get(THIS_MODULE);
+  map_io();
   start_pwm();
   printk(KERN_INFO "[%s] device opened\n", DRIVER_NAME);
   return 0;
@@ -92,6 +91,7 @@ static int fs_open(struct inode *inode, struct file *file) {
 static int fs_release(struct inode *inode, struct file *file) {
   module_put(THIS_MODULE);
   stop_pwm();
+  unmap_io();
   printk(KERN_INFO "[%s] device closed\n", DRIVER_NAME);
   return 0;
 }
