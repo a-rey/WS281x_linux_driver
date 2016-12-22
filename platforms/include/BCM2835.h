@@ -17,9 +17,25 @@
 /* rate of the oscillator crystal is 19.2MHz */
 #define OSC_FREQ 19200000 // hz
 
+/* GPIO pin number for PWM */
+#define PWM0_PIN_NUM 18
+
+/* GPIO function to allow for PWM to be outputted */
+#define PWM0_ALT_FUN GPIO_FUN_ALT5
+
 /* memory mapping specification for GPIO registers */
 #define GPIO_BASE 0x20200000
 #define GPIO_SIZE (40 * sizeof(uint32_t))
+
+/* register constant mapping for changing a GPIO's function */
+#define GPIO_FUN_INPUT  0
+#define GPIO_FUN_OUTPUT 1
+#define GPIO_FUN_ALT0   4
+#define GPIO_FUN_ALT1   5
+#define GPIO_FUN_ALT2   6
+#define GPIO_FUN_ALT3   7
+#define GPIO_FUN_ALT4   3
+#define GPIO_FUN_ALT5   2
 
 /* MMIO offsets for GPIO registers */
 #define GPIO_GPFSEL0   0

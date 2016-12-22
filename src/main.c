@@ -18,7 +18,7 @@
  * module initialization routine
  */
 static int __init init(void) {
-  printk(KERN_INFO "[%s] initializing...\n", DRIVER_NAME);
+  printk(KERN_INFO "%s: (init) initializing...\n", DRIVER_NAME);
   if (init_fs() < 0) {
     return -1;
   }
@@ -30,7 +30,7 @@ static int __init init(void) {
  * module uninitialization routine
  */
 static void __exit cleanup(void) {
-  printk(KERN_INFO "[%s] uninitializing...\n", DRIVER_NAME);
+  printk(KERN_INFO "%s: (cleanup) uninitializing...\n", DRIVER_NAME);
   cleanup_fs();
 }
 

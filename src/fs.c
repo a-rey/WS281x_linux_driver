@@ -40,7 +40,7 @@ int init_fs(void) {
   // dynamically get a major number
   major_num = register_chrdev(0, DRIVER_NAME, &fops);
   if (major_num < 0) {
-    printk(KERN_ALERT "[%s] error in register_chrdev: %d\n", DRIVER_NAME, major_num);
+    printk(KERN_ALERT "%s: (register_chrdev) error %d\n", DRIVER_NAME, major_num);
     return major_num;
   }
 
@@ -48,7 +48,7 @@ int init_fs(void) {
   class_ptr = class_create(THIS_MODULE, CLASS_NAME);
   if (IS_ERR(class_ptr)) {
     unregister_chrdev(major_num, DRIVER_NAME);
-    printk(KERN_ALERT "[%s] error in class_create: %ld\n", DRIVER_NAME, PTR_ERR(class_ptr));
+    printk(KERN_ALERT "%s: (class_create) error %ld\n", DRIVER_NAME, PTR_ERR(class_ptr));
     return PTR_ERR(class_ptr);
   }
 
@@ -57,10 +57,10 @@ int init_fs(void) {
   if (IS_ERR(device_ptr)) {
     class_destroy(class_ptr);
     unregister_chrdev(major_num, DRIVER_NAME);
-    printk(KERN_ALERT "[%s] error in device_create: %ld\n", DRIVER_NAME, PTR_ERR(device_ptr));
+    printk(KERN_ALERT "%s: (device_create) error %ld\n", DRIVER_NAME, PTR_ERR(device_ptr));
     return PTR_ERR(device_ptr);
   }
-  printk(KERN_INFO "[%s] device registered with major number %d\n", DRIVER_NAME, major_num);
+  printk(KERN_INFO "%s: (init_fs) device registered with major number %d\n", DRIVER_NAME, major_num);
   return 0;
 }
 
@@ -80,7 +80,7 @@ static int fs_open(struct inode *inode, struct file *file) {
   try_module_get(THIS_MODULE);
   map_io();
   start_pwm();
-  printk(KERN_INFO "[%s] device opened\n", DRIVER_NAME);
+  printk(KERN_INFO "%s: (fs_open) device opened\n", DRIVER_NAME);
   return 0;
 }
 
@@ -92,7 +92,7 @@ static int fs_release(struct inode *inode, struct file *file) {
   module_put(THIS_MODULE);
   stop_pwm();
   unmap_io();
-  printk(KERN_INFO "[%s] device closed\n", DRIVER_NAME);
+  printk(KERN_INFO "%s: (fs_release) device closed\n", DRIVER_NAME);
   return 0;
 }
 
@@ -108,7 +108,7 @@ static int fs_release(struct inode *inode, struct file *file) {
  * returns the number of bytes read (0 means EOF)
  */
 static ssize_t fs_read(struct file *filp, char *buff, size_t len, loff_t * offset) {
-  printk(KERN_INFO "[%s] device read %d bytes\n", DRIVER_NAME, len);
+  printk(KERN_INFO "%s: (fs_read) device read %d bytes\n", DRIVER_NAME, len);
   return 0;
 }
 
@@ -124,7 +124,7 @@ static ssize_t fs_read(struct file *filp, char *buff, size_t len, loff_t * offse
  * returns the number of bytes written (0 means EOF)
  */
 static ssize_t fs_write(struct file *filp, const char *buff, size_t len, loff_t * offset) {
-  printk(KERN_INFO "[%s] device write %d bytes\n", DRIVER_NAME, len);
+  printk(KERN_INFO "%s: (fs_write) device write %d bytes\n", DRIVER_NAME, len);
   return len;
 }
 
