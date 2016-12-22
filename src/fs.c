@@ -12,8 +12,8 @@
 #include <linux/kernel.h> /* for printk */
 #include <linux/module.h> /* for get/put_module */
 
-#include "neopixel.h"     /* for module info */
-#include "BCM2835.h"      /* for pwm functions */
+#include <hal.h>          /* for hardware functions */
+#include <neopixel.h>     /* for module info */
 
 #define CLASS_NAME "adafruit"
 

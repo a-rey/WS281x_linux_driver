@@ -126,24 +126,4 @@
 #define PWM_DMAC_PANIC(x) ((x & 0xFF) << 8)
 #define PWM_DMAC_DREQ(x)  ((x & 0xFF) << 0)
 
-/*
- * map all required hardware IO addresses into the virtual memory of this module
- */
-void map_io(void);
-
-/*
- * unmap all used hardware IO addresses from the virtual memory of this module
- */
-void unmap_io(void);
-
-/*
- * starts the PWM signal needed to drive the neopixels
- */
-int start_pwm(void);
-
-/*
- * stops the PWM signal needed to drive the neopixels
- */
-void stop_pwm(void);
-
 #endif /* _NEOPIXEL_BCM2835_H_ */

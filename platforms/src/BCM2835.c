@@ -15,8 +15,8 @@
 #include <linux/delay.h>   /* for udelay() */
 #include <asm/io.h>        /* for read/write memory barrier operations */
 
-#include "BCM2835.h"      /* for hardware specific addresses */
-#include "neopixel.h"     /* for WS2812_RATE */
+#include <BCM2835.h>      /* for hardware specific addresses */
+#include <neopixel.h>     /* for WS2812_RATE */
 
 /* GPIO pin numbers for PWM output */
 #define PWM0_PIN_NUM 18
@@ -52,7 +52,7 @@ int start_pwm(void) {
   iowrite32(config, GPIO + reg);
 
   // stop the clock if it is in use
-  stop_pwm();
+  // stop_pwm();
   // setup the PWM clock manager to 3 x WS2812_RATE
   iowrite32(CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (3 * WS2812_RATE)), CM + CM_PWM_DIV);
   // source the PWM clock from the oscillator and enable it
@@ -67,9 +67,9 @@ int start_pwm(void) {
   udelay(10);
 
   // write some data to send
-  iowrite32(0xFFFF << 8, PWM + PWM_DAT1); // purple
+  iowrite32(0x36db6db6, PWM + PWM_DAT1); // purple
   udelay(10);
-  iowrite32(0xFFFF << 8, PWM + PWM_DAT2); // purple
+  iowrite32(0x36db6db6, PWM + PWM_DAT2); // purple
   udelay(10);
 
   // configure both PWM channels to send data serially out of the data register

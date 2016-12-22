@@ -10,8 +10,8 @@
 #include <linux/kernel.h> /* for printk */
 #include <linux/init.h>   /* for __init/exit */
 
-#include "fs.h"           /* for fs interface */
-#include "neopixel.h"     /* for MODULE_* macros */
+#include <fs.h>           /* for fs interface */
+#include <neopixel.h>     /* for MODULE_* macros */
 
 
 /*
