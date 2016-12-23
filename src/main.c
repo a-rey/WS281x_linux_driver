@@ -18,7 +18,7 @@
  * module initialization routine
  */
 static int __init init(void) {
-  printk(KERN_INFO "%s: (init) initializing...\n", DRIVER_NAME);
+  printk(KERN_INFO "%s: (*** init ***) initializing...\n", DRIVER_NAME);
   if (init_fs() < 0) {
     return -1;
   }
