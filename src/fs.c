@@ -6,14 +6,17 @@
  * Aaron Reyes
  */
 
-#include <linux/fs.h>     /* for file_operations */
-#include <linux/err.h>    /* for error checking functions like IS_ERR() */
-#include <linux/device.h> /* for device_create/destroy */
-#include <linux/kernel.h> /* for printk */
-#include <linux/module.h> /* for get/put_module */
+#include <linux/fs.h>            /* for file_operations */
+#include <linux/err.h>           /* for error checking functions like IS_ERR() */
+#include <linux/device.h>        /* for device_create/destroy */
+#include <linux/kernel.h>        /* for printk */
+#include <linux/module.h>        /* for get/put_module */
+#include <linux/slab.h>          /* for kmalloc and kfree */
+#include <asm/errno.h>           /* for linux error return codes */
+#include <asm-generic/uaccess.h> /* copy_to_user, copy_from_user */
 
-#include <hal.h>          /* for hardware functions */
-#include <neopixel.h>     /* for module info */
+#include <hal.h>                 /* for hardware functions */
+#include <neopixel.h>            /* for module info */
 
 #define CLASS_NAME "adafruit"
 
@@ -24,8 +27,8 @@ static struct device* device_ptr; /* device driver device struct pointer */
 /* file system function signatures */
 static int fs_open(struct inode *inode, struct file *file);
 static int fs_release(struct inode *inode, struct file *file);
-static ssize_t fs_read(struct file *filp, char *buff, size_t len, loff_t * offset);
-static ssize_t fs_write(struct file *filp, const char *buff, size_t len, loff_t * offset);
+static ssize_t fs_read(struct file *filp, char *buf, size_t len, loff_t * offset);
+static ssize_t fs_write(struct file *filp, const char *buf, size_t len, loff_t * offset);
 
 /* file system function hooks */
 static struct file_operations fops = {
@@ -77,9 +80,12 @@ void cleanup_fs(void) {
  * Called when a process tries to open the device file
  */
 static int fs_open(struct inode *inode, struct file *file) {
+  int err;
   try_module_get(THIS_MODULE);
-  map_io();
-  start_pwm();
+  err = hal_init();
+  if (err) {
+    return err;
+  }
   printk(KERN_INFO "%s: (fs_open) device opened\n", DRIVER_NAME);
   return 0;
 }
@@ -90,8 +96,7 @@ static int fs_open(struct inode *inode, struct file *file) {
  */
 static int fs_release(struct inode *inode, struct file *file) {
   module_put(THIS_MODULE);
-  stop_pwm();
-  unmap_io();
+  hal_cleanup();
   printk(KERN_INFO "%s: (fs_release) device closed\n", DRIVER_NAME);
   return 0;
 }
@@ -101,13 +106,13 @@ static int fs_release(struct inode *inode, struct file *file) {
  * Called when a process reads from the device file
  *
  * filp - file pointer from include/linux/fs.h
- * buffer - buffer to fill with data for user
- * length - length of that buffer
+ * buf - buffer to fill with data for user
+ * len - length of that buffer
  * offset - current offset into the file
  *
  * returns the number of bytes read (0 means EOF)
  */
-static ssize_t fs_read(struct file *filp, char *buff, size_t len, loff_t * offset) {
+static ssize_t fs_read(struct file *filp, char *buf, size_t len, loff_t * offset) {
   printk(KERN_INFO "%s: (fs_read) device read %d bytes\n", DRIVER_NAME, len);
   return 0;
 }
@@ -117,13 +122,30 @@ static ssize_t fs_read(struct file *filp, char *buff, size_t len, loff_t * offse
  * Called when a process writes to the device file
  *
  * filp - file pointer from include/linux/fs.h
- * buffer - buffer with data from the user
- * length - length of that buffer
+ * buf - buffer with data from the user
+ * len - length of that buffer
  * offset - current offset into the file
  *
  * returns the number of bytes written (0 means EOF)
  */
-static ssize_t fs_write(struct file *filp, const char *buff, size_t len, loff_t * offset) {
+static ssize_t fs_write(struct file *filp, const char *buf, size_t len, loff_t * offset) {
+  int err;
+  char *kbuf;
+  // get a local copy of the buffer from user space into kernel space
+  kbuf = (char *)kmalloc(len, GFP_KERNEL);
+  if (IS_ERR(kbuf)) {
+    printk(KERN_ALERT "%s: (fs_write) kmalloc error 0x%p\n", DRIVER_NAME, kbuf);
+    return -ENOMEM;
+  }
+  err = copy_from_user(kbuf, buf, len);
+  if (err) {
+    printk(KERN_ALERT "%s: (fs_write) copy_from_user error %d\n", DRIVER_NAME, err);
+    kfree(kbuf);
+    return -EFAULT;
+  }
+  // render the buffer
+  hal_render(kbuf, len);
+  kfree(kbuf);
   printk(KERN_INFO "%s: (fs_write) device write %d bytes\n", DRIVER_NAME, len);
   return len;
 }

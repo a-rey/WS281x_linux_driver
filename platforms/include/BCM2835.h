@@ -24,7 +24,7 @@
 #define PWM0_ALT_FUN GPIO_FUN_ALT5
 
 /* memory mapping specification for GPIO registers */
-#define GPIO_BASE 0x20200000
+#define GPIO_BASE 0x20200000 // physical address
 #define GPIO_SIZE (40 * sizeof(uint32_t))
 
 /* register constant mapping for changing a GPIO's function */
@@ -69,7 +69,7 @@
 #define GPIO_GPPUDCLK1 39
 
 /* memory mapping specification for clock manager registers */
-#define CM_BASE 0x201010A0
+#define CM_BASE 0x201010A0 // physical address
 #define CM_SIZE (2 * sizeof(uint32_t))
 
 /* MMIO offsets for clock manager registers */
@@ -96,7 +96,7 @@
 #define CM_PWM_DIV_DIVF(x)     ((x & 0xFFF) << 0)
 
 /* memory mapping specification for PWM registers */
-#define PWM_BASE 0x2020C000
+#define PWM_BASE 0x2020C000 // physical address
 #define PWM_SIZE (10 * sizeof(uint32_t))
 
 /* MMIO offsets for PWM registers */
@@ -141,5 +141,58 @@
 #define PWM_DMAC_ENAB     (1 << 31)
 #define PWM_DMAC_PANIC(x) ((x & 0xFF) << 8)
 #define PWM_DMAC_DREQ(x)  ((x & 0xFF) << 0)
+
+/* memory mapping specification for DMA5 registers (PWM is mapped to DMA channel 5) */
+#define DMA5_BASE 0x20007500 // physical address
+#define DMA5_SIZE (9 * sizeof(uint32_t))
+
+/* MMIO offsets for DMA registers */
+#define DMA5_CS        0
+#define DMA5_CONBLK_AD 1
+#define DMA5_TI        2
+#define DMA5_SOURCE_AD 3
+#define DMA5_DEST_AD   4
+#define DMA5_TXFR_LEN  5
+#define DMA5_STRIDE    6
+#define DMA5_NEXTCONBK 7
+#define DMA5_DEBUG     8
+
+/* DMA register masks */
+#define DMA5_CS_RESET                      (1 << 31)
+#define DMA5_CS_ABORT                      (1 << 30)
+#define DMA5_CS_DISDEBUG                   (1 << 29)
+#define DMA5_CS_WAIT_OUTSTANDING_WRITES    (1 << 28)
+#define DMA5_CS_PANIC_PRIORITY(x)          ((x & 0xF) << 20)
+#define DMA5_CS_PRIORITY(x)                ((x & 0xF) << 16)
+#define DMA5_CS_ERROR                      (1 << 8)
+#define DMA5_CS_WAITING_OUTSTANDING_WRITES (1 << 6)
+#define DMA5_CS_DREQ_STOPS_DMA             (1 << 5)
+#define DMA5_CS_PAUSED                     (1 << 4)
+#define DMA5_CS_DREQ                       (1 << 3)
+#define DMA5_CS_INT                        (1 << 2)
+#define DMA5_CS_END                        (1 << 1)
+#define DMA5_CS_ACTIVE                     (1 << 0)
+#define DMA5_TI_NO_WIDE_BURSTS             (1 << 26)
+#define DMA5_TI_WAITS(x)                   ((x & 0x1F) << 21)
+#define DMA5_TI_PERMAP(x)                  ((x & 0x1F) << 16)
+#define DMA5_TI_BURST_LENGTH(x)            ((x & 0xF) << 12)
+#define DMA5_TI_SRC_IGNORE                 (1 << 11)
+#define DMA5_TI_SRC_DREQ                   (1 << 10)
+#define DMA5_TI_SRC_WIDTH                  (1 << 9)
+#define DMA5_TI_SRC_INC                    (1 << 8)
+#define DMA5_TI_DEST_IGNORE                (1 << 7)
+#define DMA5_TI_DEST_DREQ                  (1 << 6)
+#define DMA5_TI_DEST_WIDTH                 (1 << 5)
+#define DMA5_TI_DEST_INC                   (1 << 4)
+#define DMA5_TI_WAIT_RESP                  (1 << 3)
+#define DMA5_TI_TDMODE                     (1 << 1)
+#define DMA5_TI_INTEN                      (1 << 0)
+#define DMA5_TXFR_LEN_YLENGTH(x)           ((x & 0xFFFF) << 16)
+#define DMA5_TXFR_LEN_XLENGTH(x)           ((x & 0xFFFF) << 0)
+#define DMA5_STRIDE_D_STRIDE(x)            ((x & 0xFFFF) << 16)
+#define DMA5_STRIDE_S_STRIDE(x)            ((x & 0xFFFF) << 0)
+#define DMA5_DEBUG_READ_ERROR              (1 << 2)
+#define DMA5_DEBUG_FIFO_ERROR              (1 << 1)
+#define DMA5_DEBUG_READ_LAST_NOT_SET_ERROR (1 << 0)
 
 #endif /* _NEOPIXEL_BCM2835_H_ */

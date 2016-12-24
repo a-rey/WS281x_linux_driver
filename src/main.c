@@ -6,19 +6,26 @@
  * Aaron Reyes
  */
 
-#include <linux/module.h> /* for module_init/exit */
-#include <linux/kernel.h> /* for printk */
-#include <linux/init.h>   /* for __init/exit */
+#include <linux/module.h>      /* for module_init/exit */
+#include <linux/moduleparam.h> /* for module parameters */
+#include <linux/kernel.h>      /* for printk */
+#include <linux/init.h>        /* for __init/exit */
 
-#include <fs.h>           /* for fs interface */
-#include <neopixel.h>     /* for MODULE_* macros */
+#include <fs.h>                /* for fs interface */
+#include <neopixel.h>          /* for MODULE_* macros and num_pixels */
 
+/*
+ * module parameter registration
+ */
+int num_pixels;
+module_param(num_pixels, int, 0444);
+MODULE_PARM_DESC(num_pixels, " Number of pixels currently being controlled");
 
 /*
  * module initialization routine
  */
 static int __init init(void) {
-  printk(KERN_INFO "%s: (*** init ***) initializing...\n", DRIVER_NAME);
+  printk(KERN_INFO "%s: (*** init ***) initializing with %d pixels...\n", DRIVER_NAME, num_pixels);
   if (init_fs() < 0) {
     return -1;
   }

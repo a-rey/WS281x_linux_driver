@@ -9,24 +9,10 @@
 #ifndef _NEOPIXEL_HAL_H_
 #define _NEOPIXEL_HAL_H_
 
-/*
- * map all required hardware IO addresses into the virtual memory of this module
- */
-void map_io(void);
+int hal_init(void);
 
-/*
- * unmap all used hardware IO addresses from the virtual memory of this module
- */
-void unmap_io(void);
+void hal_render(char *buf, size_t len);
 
-/*
- * starts the PWM signal needed to drive the neopixels
- */
-int start_pwm(void);
-
-/*
- * stops the PWM signal needed to drive the neopixels
- */
-void stop_pwm(void);
+void hal_cleanup(void);
 
 #endif /* _NEOPIXEL_HAL_H_ */

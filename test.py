@@ -2,12 +2,11 @@
 
 import subprocess
 
-print "return code: ", subprocess.call(["insmod", "neopixel.ko"])
+print "return code: ", subprocess.Popen("insmod neopixel.ko num_pixels=30", shell=True, stdout=subprocess.PIPE).stdout.read()
 
 f = open('/dev/neopixel', 'r+')
 
-for x in xrange(1,1000000):
-  pass
+f.write("acb" * 30)
 
 f.close()
 

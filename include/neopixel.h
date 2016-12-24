@@ -16,6 +16,10 @@
 #define DRIVER_LICENSE "Dual MIT/GPL"
 
 /* signal rate of the pixels */
-#define WS2812_RATE    800000 // Hz
+#define PIXEL_RATE     800000 // Hz
+#define PIXEL_DATA_LEN 3      // bytes
+
+/* the number of pixels currently under control */
+extern int num_pixels;
 
 #endif /* _NEOPIXEL_H_ */
