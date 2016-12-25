@@ -16,7 +16,7 @@
 #include <linux/slab.h>   /* for kmalloc and kfree */
 #include <linux/string.h> /* for memset() */
 #include <linux/err.h>    /* for error checking functions like IS_ERR() */
-#include <asm/io.h>       /* for read/write memory barrier operations */
+#include <asm/io.h>       /* for read/write IO operations and virtual/physical translation */
 
 #include <hal.h>          /* for interface definition */
 #include <BCM2835.h>      /* for hardware specific addresses */
@@ -29,8 +29,8 @@
 #define ROUND_UP(num, div) (num + ((div - (num % div)) % div))
 
 /* constants used to define a 1/0 as seen by the pixel in the PWM buffer */
-#define PIXEL_1 110
-#define PIXEL_0 100
+#define PIXEL_1 ((char)0x6) // 110
+#define PIXEL_0 ((char)0x4) // 100
 
 /* DMA control block definition */
 struct dma_cb_t {
@@ -73,7 +73,6 @@ static void gpio_config(uint32_t pin, uint32_t fun) {
  * stops the PWM clock generator and turns off the PWM module
  */
 static void pwm_stop(void) {
-  printk(KERN_INFO "%s: (pwm_stop) before: CM_PWM_CTL = 0x%x\n", DRIVER_NAME, ioread32(CM + CM_PWM_CTL));
   // check if the PWM clock is currently running
   if (ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_ENAB) {
     // turn off PWM
@@ -84,7 +83,6 @@ static void pwm_stop(void) {
     udelay(10);
     while (ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_BUSY);
   }
-  printk(KERN_INFO "%s: (pwm_stop) after: CM_PWM_CTL = 0x%x\n", DRIVER_NAME, ioread32(CM + CM_PWM_CTL));
 }
 
 
@@ -107,8 +105,17 @@ static void pwm_start(void) {
   iowrite32(32, PWM + PWM_RNG1);
   // clear the FIFO
   iowrite32(PWM_CTL_CLRF1, PWM + PWM_CTL);
-  // enable DMA with PWM
-  iowrite32(PWM_DMAC_ENAB | PWM_DMAC_PANIC(7) | PWM_DMAC_DREQ(3), PWM + PWM_DMAC);
+  // enable DMA with PWM (activate DREQ/PANIC when queue < PWM_FIFO_SIZE)
+  // iowrite32(PWM_DMAC_ENAB | PWM_DMAC_PANIC(PWM_FIFO_SIZE) | PWM_DMAC_DREQ(PWM_FIFO_SIZE), PWM + PWM_DMAC);
+
+  iowrite32(0xdb6db692, PWM + PWM_FIF1);
+  iowrite32(0x49249249, PWM + PWM_FIF1);
+  iowrite32(0x24000000, PWM + PWM_FIF1);
+  iowrite32(0x00000000, PWM + PWM_FIF1);
+  iowrite32(0x00000000, PWM + PWM_FIF1);
+  iowrite32(0x00000000, PWM + PWM_FIF1);
+  iowrite32(0x00000000, PWM + PWM_FIF1);
+
   // configure PWM channel to send data serially out of the FIFO
   iowrite32(PWM_CTL_MODE1 | PWM_CTL_USEF1 | PWM_CTL_PWEN1, PWM + PWM_CTL);
   // configure GPIO pin to the correct function for PWM output
@@ -120,8 +127,10 @@ static void pwm_start(void) {
  * waits for any current DMA operation to complete then resets the DMA module
  */
 static void dma_stop(void) {
+  printk(KERN_INFO "%s: (dma_stop) (begin) DMA5_CS = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
   // wait until any current DMA operation completes
   while ((ioread32(DMA5 + DMA5_CS) & DMA5_CS_ACTIVE) && !(ioread32(DMA5 + DMA5_CS) & DMA5_CS_ERROR)) {
+    printk(KERN_INFO "%s: (dma_stop) DMA operation in progress DMA5_CS = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
     udelay(10);
   }
   // check for errors
@@ -131,9 +140,10 @@ static void dma_stop(void) {
   // reset the DMA module
   iowrite32(DMA5_CS_RESET, DMA5 + DMA5_CS);
   udelay(10);
-  // clear any old status flags
+  // clear old status flags
   iowrite32(DMA5_CS_END | DMA5_CS_INT, DMA5 + DMA5_CS);
   udelay(10);
+  printk(KERN_INFO "%s: (dma_stop) (end) DMA5_CS = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
   // clear old error flags
   iowrite32(DMA5_DEBUG_READ_ERROR | DMA5_DEBUG_FIFO_ERROR | DMA5_DEBUG_READ_LAST_NOT_SET_ERROR, DMA5 + DMA5_DEBUG);
 }
@@ -143,16 +153,21 @@ static void dma_stop(void) {
  * takes a complete control block and issues it to the DMA module
  */
 static void dma_start(void) {
-  // set the new DMA control block address
-  iowrite32((uint32_t)(&dma_cb), DMA5 + DMA5_CONBLK_AD);
-  // begin the DMA transfer with max AXI priority
-  iowrite32(DMA5_CS_WAIT_OUTSTANDING_WRITES | DMA5_CS_PANIC_PRIORITY(15) | DMA5_CS_PRIORITY(15) | DMA5_CS_ACTIVE, DMA5 + DMA5_CS);
+  printk(KERN_INFO "%s: (dma_start) (begin) DMA5_CONBLK_AD = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CONBLK_AD));
+  printk(KERN_INFO "%s: (dma_start) (begin) DMA5_CS = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
+  // set the new DMA control block physical address
+  iowrite32(virt_to_phys(&dma_cb), DMA5 + DMA5_CONBLK_AD);
+  // begin the DMA transfer with max AXI priority (15)
+  iowrite32(DMA5_CS_WAIT_OUTSTANDING_WRITES | DMA5_CS_PANIC_PRIORITY(15) | DMA5_CS_PRIORITY(15), DMA5 + DMA5_CS);
+  printk(KERN_INFO "%s: (dma_start) (end) DMA5_CONBLK_AD = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CONBLK_AD));
+  printk(KERN_INFO "%s: (dma_start) (end) DMA5_CS = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
+  iowrite32(ioread32(DMA5 + DMA5_CS) |  DMA5_CS_ACTIVE, DMA5 + DMA5_CS);
 }
 
 
 int hal_init(void) {
-  char *kbuf;
-  uint32_t len;
+  // char *kbuf;
+  // uint32_t len;
   // map external IO
   CM = (volatile uint32_t *)ioremap(CM_BASE, CM_SIZE);
   PWM = (volatile uint32_t *)ioremap(PWM_BASE, PWM_SIZE);
@@ -160,41 +175,64 @@ int hal_init(void) {
   GPIO = (volatile uint32_t *)ioremap(GPIO_BASE, GPIO_SIZE);
   // start the PWM generation (with no FIFO data)
   pwm_start();
-  // find out how many bytes are needed in the buffer
-  len = ROUND_UP((num_pixels * PIXEL_DATA_LEN * 3) + PIXEL_RESET_BYTE_PADDING, sizeof(uint32_t));
-  // allocate the buffer needed for streaming user data to the PWM module
-  kbuf = (char *)kmalloc(len, GFP_KERNEL);
-  if (IS_ERR(kbuf)) {
-    printk(KERN_ALERT "%s: (hal_init) kmalloc error 0x%p\n", DRIVER_NAME, kbuf);
-    return -ENOMEM;
-  }
-  // store the empty PWM buffer into the DMA control block
-  dma_cb.source_ad = (uint32_t)kbuf;
-  // set the destination address to be the PWM FIFO
-  dma_cb.dest_ad = (uint32_t)(PWM + PWM_FIF1);
-  // set the total number of bytes to transfer
-  dma_cb.txfr_len = len;
-  // configure DMA control block transfer info for:
-  // - 32 bit transfers to peripheral 5 (PWM)
-  // - increment source address after each transfer
-  // - wait for response before next transfer (use destination DREQ)
-  dma_cb.ti = DMA5_TI_NO_WIDE_BURSTS | DMA5_TI_PERMAP(5) | DMA5_TI_SRC_INC | DMA5_TI_DEST_DREQ | DMA5_TI_WAIT_RESP;
-  // no 2D stride and make sure there is no other chained control block
-  dma_cb.stride = 0;
-  dma_cb.nextconbk = 0;
+  // printk(KERN_INFO "%s: (hal_init) control block P address = 0x%08x\n", DRIVER_NAME, virt_to_phys(&dma_cb));
+  // printk(KERN_INFO "%s: (hal_init) control block V address = 0x%08x\n", DRIVER_NAME, (uint32_t)(&dma_cb));
+  // // find out how many bytes are needed in the buffer
+  // len = ROUND_UP((num_pixels * PIXEL_DATA_LEN * 3) + PIXEL_RESET_BYTE_PADDING, sizeof(uint32_t));
+  // printk(KERN_INFO "%s: (hal_init) internal buffer length = %d bytes\n", DRIVER_NAME, len);
+  // // allocate the buffer needed for streaming user data to the PWM module
+  // kbuf = (char *)kmalloc(len, GFP_KERNEL);
+  // if (IS_ERR(kbuf)) {
+  //   printk(KERN_ALERT "%s: (hal_init) kmalloc error 0x%p\n", DRIVER_NAME, kbuf);
+  //   return -ENOMEM;
+  // }
+  // // store the physical address of the empty PWM buffer into the DMA control block
+  // dma_cb.source_ad = virt_to_phys(kbuf);
+  // printk(KERN_INFO "%s: (hal_init) source P address = 0x%08x\n", DRIVER_NAME, dma_cb.source_ad);
+  // printk(KERN_INFO "%s: (hal_init) source V address = 0x%08x\n", DRIVER_NAME, (uint32_t)(kbuf));
+  // // set the destination address to be the PWM FIFO
+  // dma_cb.dest_ad = 0x7E20C000 + (PWM_FIF1 * sizeof(uint32_t));
+  // printk(KERN_INFO "%s: (hal_init) destination P address = 0x%08x\n", DRIVER_NAME, dma_cb.dest_ad);
+  // printk(KERN_INFO "%s: (hal_init) destination V address = 0x%08x\n", DRIVER_NAME, (uint32_t)(PWM + PWM_FIF1));
+  // // set the total number of bytes to transfer
+  // dma_cb.txfr_len = len;
+  // // configure DMA control block transfer info for:
+  // // - 32 bit transfers to peripheral 5 (PWM)
+  // // - increment source address after each transfer
+  // // - wait for response before next transfer (use destination DREQ)
+  // dma_cb.ti = DMA5_TI_NO_WIDE_BURSTS | DMA5_TI_PERMAP(5) | DMA5_TI_SRC_INC | DMA5_TI_DEST_DREQ | DMA5_TI_WAIT_RESP;
+  // printk(KERN_INFO "%s: (hal_init) transfer info = 0x%08x\n", DRIVER_NAME, dma_cb.ti);
+  // // no 2D stride and make sure there is no other chained control block
+  // dma_cb.stride = 0;
+  // dma_cb.nextconbk = 0;
   return 0;
 }
 
 
 void hal_render(char *buf, size_t len) {
   int i, j;
-  char *kbuf = (char *)dma_cb.source_ad;
-  // copy the buffer translation into the control block source buffer
+  char *kbuf = (char *)phys_to_virt(dma_cb.source_ad);
+  // convert the user buffer into the PWM buffer
+  j = 0;
   for (i = 0, j = 0; i < len; i++, j+=3) {
-    kbuf[j] = buf[i] ? PIXEL_1 : PIXEL_0;
+    kbuf[j] = (buf[i] & (1 << 7)) ? (PIXEL_1 << 5) : (PIXEL_0 << 5);
+    kbuf[j] |= (buf[i] & (1 << 6)) ? (PIXEL_1 << 2) : (PIXEL_0 << 2);
+    kbuf[j] |= (buf[i] & (1 << 5)) ? (PIXEL_1 >> 1) : (PIXEL_0 >> 1);
+    kbuf[j + 1] = (buf[i] & (1 << 5)) ? ((PIXEL_1 & 0x1) << 7) : ((PIXEL_0 & 0x1) << 7);
+    kbuf[j + 1] |= (buf[i] & (1 << 4)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
+    kbuf[j + 1] |= (buf[i] & (1 << 3)) ? (PIXEL_1 << 1) : (PIXEL_0 << 1);
+    kbuf[j + 1] |= (buf[i] & (1 << 2)) ? (PIXEL_1 >> 2) : (PIXEL_0 >> 2);
+    kbuf[j + 2] = (buf[i] & (1 << 2)) ? ((PIXEL_1 & 0x3) << 6) : ((PIXEL_0 & 0x3) << 6);
+    kbuf[j + 2] |= (buf[i] & (1 << 1)) ? (PIXEL_1 << 3) : (PIXEL_0 << 3);
+    kbuf[j + 2] |= (buf[i] & (1 << 0)) ? PIXEL_1 : PIXEL_0;
+    printk(KERN_INFO "%s: (hal_render) buf[%d] = 0x%02x\n", DRIVER_NAME, i, buf[i]);
+    printk(KERN_INFO "%s: (hal_render)   kbuf[%d] = 0x%02x\n", DRIVER_NAME, j, kbuf[j]);
+    printk(KERN_INFO "%s: (hal_render)   kbuf[%d] = 0x%02x\n", DRIVER_NAME, j + 1, kbuf[j + 1]);
+    printk(KERN_INFO "%s: (hal_render)   kbuf[%d] = 0x%02x\n", DRIVER_NAME, j + 2, kbuf[j + 2]);
   }
-  // set the rest of the source buffer to 0
-  memset(kbuf + (j - 3), 0, dma_cb.txfr_len - (j - 3));
+  // zero out remaining space for the pixel RESET signal
+  memset(kbuf + j, 0, dma_cb.txfr_len - j);
+  printk(KERN_INFO "%s: (hal_render) kbuf[%d:%d] = 0x0\n", DRIVER_NAME, j, dma_cb.txfr_len);
   // send the control block to DMA for transfer
   dma_stop();
   dma_start();
@@ -203,8 +241,8 @@ void hal_render(char *buf, size_t len) {
 
 void hal_cleanup(void) {
   pwm_stop();
-  dma_stop();
-  kfree((char *)(dma_cb.source_ad));
+  // dma_stop();
+  // kfree(phys_to_virt(dma_cb.source_ad));
   iounmap(CM);
   iounmap(PWM);
   iounmap(DMA5);

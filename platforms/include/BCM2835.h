@@ -99,6 +99,9 @@
 #define PWM_BASE 0x2020C000 // physical address
 #define PWM_SIZE (10 * sizeof(uint32_t))
 
+/* PWM FIFO size */
+#define PWM_FIFO_SIZE 16
+
 /* MMIO offsets for PWM registers */
 #define PWM_CTL  0
 #define PWM_STA  1

@@ -81,12 +81,12 @@ void cleanup_fs(void) {
  */
 static int fs_open(struct inode *inode, struct file *file) {
   int err;
+  printk(KERN_INFO "%s: (fs_open) device opened\n", DRIVER_NAME);
   try_module_get(THIS_MODULE);
   err = hal_init();
   if (err) {
     return err;
   }
-  printk(KERN_INFO "%s: (fs_open) device opened\n", DRIVER_NAME);
   return 0;
 }
 
@@ -131,6 +131,7 @@ static ssize_t fs_read(struct file *filp, char *buf, size_t len, loff_t * offset
 static ssize_t fs_write(struct file *filp, const char *buf, size_t len, loff_t * offset) {
   int err;
   char *kbuf;
+  printk(KERN_INFO "%s: (fs_write) device write %d bytes\n", DRIVER_NAME, len);
   // get a local copy of the buffer from user space into kernel space
   kbuf = (char *)kmalloc(len, GFP_KERNEL);
   if (IS_ERR(kbuf)) {
@@ -144,9 +145,8 @@ static ssize_t fs_write(struct file *filp, const char *buf, size_t len, loff_t *
     return -EFAULT;
   }
   // render the buffer
-  hal_render(kbuf, len);
+  // hal_render(kbuf, len);
   kfree(kbuf);
-  printk(KERN_INFO "%s: (fs_write) device write %d bytes\n", DRIVER_NAME, len);
   return len;
 }
 
