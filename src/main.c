@@ -9,7 +9,6 @@
 #include <linux/module.h>      /* for module_init/exit */
 #include <linux/moduleparam.h> /* for module_param */
 #include <linux/kernel.h>      /* for printk */
-#include <linux/stat.h>        /* for */
 #include <linux/init.h>        /* for __init/exit */
 
 #include <fs.h>                /* for fs interface */
@@ -21,6 +20,12 @@
 int num_pixels;
 module_param(num_pixels, int, 0);
 MODULE_PARM_DESC(num_pixels, " Number of pixels currently being controlled");
+int pin_num;
+module_param(pin_num, int, 0);
+MODULE_PARM_DESC(pin_num, " The GPIO pin to set as the PWM output");
+int pin_fun;
+module_param(pin_fun, int, 0);
+MODULE_PARM_DESC(pin_fun, " The GPIO pin alternate function");
 
 /*
  * module initialization routine
@@ -32,6 +37,7 @@ static int __init init(void) {
     printk(KERN_ALERT "%s: (init) invalid number of pixels %d\n", DRIVER_NAME, num_pixels);
     return -1;
   }
+  // todo: check the GPIO pin/function to the hardware
   return init_fs();
 }
 

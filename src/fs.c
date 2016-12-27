@@ -145,7 +145,7 @@ static ssize_t fs_write(struct file *filp, const char *buf, size_t len, loff_t *
     return -EFAULT;
   }
   // render the buffer
-  // hal_render(kbuf, len);
+  hal_render(kbuf, len);
   kfree(kbuf);
   return len;
 }
