@@ -8,7 +8,7 @@
 
 #include <linux/module.h>      /* for module_init/exit */
 #include <linux/moduleparam.h> /* for module_param */
-#include <linux/kernel.h>      /* for printk */
+#include <linux/kernel.h>      /* for printk KERN_INFO */
 #include <linux/init.h>        /* for __init/exit */
 
 #include <fs.h>                /* for fs interface */
@@ -34,7 +34,7 @@ static int __init init(void) {
   printk(KERN_INFO "%s: (*** init ***) initializing with %d pixels...\n", DRIVER_NAME, num_pixels);
   // check the value of num_pixels
   if (num_pixels <= 0) {
-    printk(KERN_ALERT "%s: (init) invalid number of pixels %d\n", DRIVER_NAME, num_pixels);
+    printk(KERN_INFO "%s: (init) invalid number of pixels %d\n", DRIVER_NAME, num_pixels);
     return -1;
   }
   // todo: check the GPIO pin/function to the hardware

@@ -12,7 +12,7 @@
 #define DRIVER_NAME    "neopixel"
 #define DRIVER_VERSION "0.1"
 #define DRIVER_AUTHOR  "Aaron Reyes"
-#define DRIVER_DESC    "A driver for Adafruit neopixels"
+#define DRIVER_DESC    "A driver for Adafruit Neopixels or any number of WS281x LEDs"
 #define DRIVER_LICENSE "Dual MIT/GPL"
 
 /* signal rate of the pixels */

@@ -11,7 +11,7 @@
  * Aaron Reyes
  */
 
-#include <linux/kernel.h> /* for printk */
+#include <linux/kernel.h> /* for printk KERN_INFO */
 #include <linux/delay.h>  /* for udelay() */
 #include <linux/string.h> /* for memset() */
 #include <linux/err.h>    /* for error checking functions like IS_ERR() */
@@ -64,7 +64,6 @@ static void gpio_config(uint32_t pin, uint32_t fun) {
   config |= (gpio_fun[fun] << offset);
   iowrite32(config, GPIO + reg);
   udelay(HW_DELAY_US);
-  printk(KERN_INFO "%s: (gpio_config) setting GPIO %d to alt function %d:%d\n", DRIVER_NAME, pin, fun, gpio_fun[fun]);
 }
 
 
@@ -80,7 +79,9 @@ static void pwm_stop(void) {
     // turn off the clock
     iowrite32(CM_PWM_CTL_PASSWD | CM_PWM_CTL_KILL, CM + CM_PWM_CTL);
     udelay(HW_DELAY_US);
-    while (ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_BUSY);
+    while (ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_BUSY) {
+      printk(KERN_INFO "%s: (pwm_stop-wait) CM_PWM_CTL    = 0x%08x\n", DRIVER_NAME, ioread32(CM + CM_PWM_CTL));
+    }
   }
 }
 
@@ -108,31 +109,31 @@ static void pwm_start(void) {
   // clear the FIFO
   iowrite32(PWM_CTL_CLRF1, PWM + PWM_CTL);
   udelay(HW_DELAY_US);
-  // // enable DMA with PWM
-  // iowrite32(PWM_DMAC_ENAB | PWM_DMAC_PANIC(PWM_FIFO_SIZE / 2) | PWM_DMAC_DREQ(PWM_FIFO_SIZE), PWM + PWM_DMAC);
-  // udelay(HW_DELAY_US);
+  // enable DMA with PWM
+  iowrite32(PWM_DMAC_ENAB | PWM_DMAC_PANIC(7) | PWM_DMAC_DREQ(3), PWM + PWM_DMAC);
+  udelay(HW_DELAY_US);
 
-  iowrite32(0x88888888, PWM + PWM_FIF1);
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  iowrite32(0x88888888, PWM + PWM_FIF1);
+  // iowrite32(0x88888888, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0x88888888, PWM + PWM_FIF1);
 
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
 
-  iowrite32(0x88888888, PWM + PWM_FIF1);
-  iowrite32(0x88888888, PWM + PWM_FIF1);
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0x88888888, PWM + PWM_FIF1);
+  // iowrite32(0x88888888, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
 
-  iowrite32(0x88888888, PWM + PWM_FIF1);
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0x88888888, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
 
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  iowrite32(0x88888888, PWM + PWM_FIF1);
-  iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
+  // iowrite32(0x88888888, PWM + PWM_FIF1);
+  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
 
-  iowrite32(0x88888888, PWM + PWM_FIF1);
+  // iowrite32(0x88888888, PWM + PWM_FIF1);
 
   // configure PWM channel to send data serially out of the FIFO
   iowrite32(PWM_CTL_MODE1 | PWM_CTL_USEF1, PWM + PWM_CTL);
@@ -155,7 +156,7 @@ static void dma_stop(void) {
   }
   // check for errors
   if (ioread32(DMA5 + DMA5_CS) & DMA5_CS_ERROR) {
-    printk(KERN_ALERT "%s: (dma_stop) DMA ERROR 0x%x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_DEBUG) & 0x7);
+    printk(KERN_INFO "%s: (dma_stop) DMA ERROR 0x%x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_DEBUG) & 0x7);
   }
   // reset the DMA module
   iowrite32(DMA5_CS_RESET, DMA5 + DMA5_CS);
@@ -176,7 +177,7 @@ static void dma_stop(void) {
 static void dma_start(void) {
   printk(KERN_INFO "%s: (dma_start) (begin) DMA5_CS       = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
   // set the new DMA control block physical address
-  iowrite32((uint32_t)dma_cb, DMA5 + DMA5_CONBLK_AD);
+  iowrite32((uint32_t)virt_to_phys(dma_cb), DMA5 + DMA5_CONBLK_AD);
   udelay(HW_DELAY_US);
   printk(KERN_INFO "%s: (dma_start) ~ dma_cb address      = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CONBLK_AD));
   printk(KERN_INFO "%s: (dma_start)     dma_cb->ti        = 0x%08x\n", DRIVER_NAME, dma_cb->ti);
@@ -202,7 +203,7 @@ int hal_init(void) {
   // allocate space for the control block
   dma_cb = (struct dma_cb_t *)__get_free_pages(GFP_KERNEL, sizeof(struct dma_cb_t) / PAGE_SIZE);
   if (IS_ERR(dma_cb)) {
-    printk(KERN_ALERT "%s: (hal_init) __get_free_pages error 0x%p\n", DRIVER_NAME, dma_cb);
+    printk(KERN_INFO "%s: (hal_init) __get_free_pages error 0x%p\n", DRIVER_NAME, dma_cb);
     return -ENOMEM;
   }
   printk(KERN_INFO "%s: (hal_init) dma_cb length          = %d pages\n", DRIVER_NAME, 1 << (sizeof(struct dma_cb_t) / PAGE_SIZE));
@@ -213,12 +214,12 @@ int hal_init(void) {
   // allocate the buffer needed for streaming user data to the PWM module
   kbuf = (char *)__get_free_pages(GFP_KERNEL, kbuf_len / PAGE_SIZE);
   if (IS_ERR(kbuf)) {
-    printk(KERN_ALERT "%s: (hal_init) __get_free_pages error 0x%p\n", DRIVER_NAME, kbuf);
+    printk(KERN_INFO "%s: (hal_init) __get_free_pages error 0x%p\n", DRIVER_NAME, kbuf);
     return -ENOMEM;
   }
   printk(KERN_INFO "%s: (hal_init) internal buffer length = %d bytes, %d pages\n", DRIVER_NAME, kbuf_len, 1 << (kbuf_len / PAGE_SIZE));
   // store the physical address of the empty PWM buffer into the DMA control block
-  dma_cb->source_ad = (uint32_t)kbuf;
+  dma_cb->source_ad = (uint32_t)virt_to_phys(kbuf);
   // set the destination address to be the hardware buss address of the PWM FIFO
   dma_cb->dest_ad = BUS_ADDRESS(PWM_BASE + (PWM_FIF1 * sizeof(uint32_t)));
   // set the total number of bytes to transfer
@@ -240,36 +241,30 @@ int hal_init(void) {
 
 
 void hal_render(char *buf, size_t len) {
-  // int i, j;
-  // // convert the user buffer into the PWM buffer
-  // j = 0;
-  // for (i = 0, j = 0; i < len; i++, j+=NUM_BYTES_PER_PIXEL) {
-  //   kbuf[j]      = (buf[i] & (1 << 7)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-  //   kbuf[j]     |= (buf[i] & (1 << 6)) ? PIXEL_1 : PIXEL_0;
-  //   kbuf[j + 1]  = (buf[i] & (1 << 5)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-  //   kbuf[j + 1] |= (buf[i] & (1 << 4)) ? PIXEL_1 : PIXEL_0;
-  //   kbuf[j + 2]  = (buf[i] & (1 << 3)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-  //   kbuf[j + 2] |= (buf[i] & (1 << 2)) ? PIXEL_1 : PIXEL_0;
-  //   kbuf[j + 3]  = (buf[i] & (1 << 1)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-  //   kbuf[j + 3] |= (buf[i] & (1 << 0)) ? PIXEL_1 : PIXEL_0;
-  //   printk(KERN_INFO "%s: (hal_render) buf[%d] = 0x%02x\n", DRIVER_NAME, i, buf[i]);
-  //   printk(KERN_INFO "%s: (hal_render)   kbuf[%d] = 0x%02x\n", DRIVER_NAME, j, kbuf[j]);
-  //   printk(KERN_INFO "%s: (hal_render)   kbuf[%d] = 0x%02x\n", DRIVER_NAME, j + 1, kbuf[j + 1]);
-  //   printk(KERN_INFO "%s: (hal_render)   kbuf[%d] = 0x%02x\n", DRIVER_NAME, j + 2, kbuf[j + 2]);
-  //   printk(KERN_INFO "%s: (hal_render)   kbuf[%d] = 0x%02x\n", DRIVER_NAME, j + 3, kbuf[j + 3]);
-  // }
-  // // zero out remaining space for the pixel RESET signal
-  // memset(kbuf + j, 0, (dma_cb->txfr_len) - j);
-  // printk(KERN_INFO "%s: (hal_render) kbuf[%d:%d] = 0x0\n", DRIVER_NAME, j, dma_cb->txfr_len - 1);
-  // // send the control block to DMA for transfer
-  // dma_stop();
-  // dma_start();
+  int i, j;
+  // convert the user buffer into the PWM buffer
+  j = 0;
+  for (i = 0, j = 0; i < len; i++, j+=NUM_BYTES_PER_PIXEL) {
+    kbuf[j]      = (buf[i] & (1 << 7)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
+    kbuf[j]     |= (buf[i] & (1 << 6)) ? PIXEL_1 : PIXEL_0;
+    kbuf[j + 1]  = (buf[i] & (1 << 5)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
+    kbuf[j + 1] |= (buf[i] & (1 << 4)) ? PIXEL_1 : PIXEL_0;
+    kbuf[j + 2]  = (buf[i] & (1 << 3)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
+    kbuf[j + 2] |= (buf[i] & (1 << 2)) ? PIXEL_1 : PIXEL_0;
+    kbuf[j + 3]  = (buf[i] & (1 << 1)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
+    kbuf[j + 3] |= (buf[i] & (1 << 0)) ? PIXEL_1 : PIXEL_0;
+  }
+  // zero out remaining space for the pixel RESET signal
+  memset(kbuf + j, 0, (dma_cb->txfr_len) - j);
+  // send the control block to DMA for transfer
+  dma_stop();
+  dma_start();
 }
 
 
 void hal_cleanup(void) {
+  dma_stop();
   pwm_stop();
-  // dma_stop();
   free_pages((uint32_t)kbuf, kbuf_len / PAGE_SIZE);
   free_pages((uint32_t)dma_cb, sizeof(struct dma_cb_t) / PAGE_SIZE);
   iounmap(CM);
