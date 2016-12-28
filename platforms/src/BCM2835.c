@@ -90,8 +90,6 @@ static void pwm_stop(void) {
  * initializes the PWM module/clock manager and configures GPIO for PWM output
  */
 static void pwm_start(void) {
-  // stop the clock if it is in use
-  pwm_stop();
   // setup the PWM clock manager to 3 x PIXEL_RATE
   iowrite32(CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (BYTES_PER_WS281x * WS281x_RATE)), CM + CM_PWM_DIV);
   udelay(HW_DELAY_US);
@@ -194,8 +192,6 @@ int hal_init(void) {
   // no 2D stride and make sure there is no other chained control block
   dma_cb->stride = 0;
   dma_cb->nextconbk = 0;
-  // start the PWM generation (with no FIFO data)
-  pwm_start();
   // configure GPIO pin to the correct function for PWM output
   gpio_config(pin_num, pin_fun);
   return 0;
@@ -218,6 +214,9 @@ void hal_render(char *buf, size_t len) {
   }
   // zero out remaining space for the WS281x RESET signal
   memset(kbuf + j, 0, (dma_cb->txfr_len) - j);
+  // start the PWM generation
+  pwm_stop(); // stop the clock if it is in use
+  pwm_start();
   // send the control block to DMA for transfer
   dma_stop();
   dma_start();
