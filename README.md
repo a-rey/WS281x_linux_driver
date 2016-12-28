@@ -16,10 +16,23 @@ pin_num: GPIO pin to set as the PWM output (int)
 pin_fun: GPIO pin alternate function (int)
 ```
 
-Example usage for Raspberry Pi 1 model A/B/A+ using BCM2835 SoC chip hardware with a strand of 30 WS281x LEDs:
+Example python script usage for Raspberry Pi 1 model A/B/A+ using BCM2835 SoC chip hardware with a strand of 30 WS281x LEDs:
 
 ```
-> insmod ws281x.ko num_leds=30 pin_num=18 pin_fun=5
+import subprocess
+
+num_leds = 30
+pin_num = 18
+pin_fun = 5
+
+subprocess.call(["insmod", "ws281x.ko",
+                           "num_leds={0}".format(num_leds),
+                           "pin_num={0}".format(pin_num),
+                           "pin_fun={0}".format(pin_fun)])
+f = open('/dev/ws281x', 'r+')
+f.write("\x00\xFF\x00\xFF\xFF\xFF\x00\x00\xFF" * (num_leds / 3)) # red, white, and blue repeating
+f.close()
+subprocess.call(["rmmod", "ws281x"])
 ```
 
 ## Limitations
@@ -67,6 +80,6 @@ Example usage for Raspberry Pi 1 model A/B/A+ using BCM2835 SoC chip hardware wi
   Additionally, the GPU will halt the DMA module every 500ms for 16us in order to adjust RAM refresh rate based on its temperature. There is a slight change that this may interfere with timing for intense routines. To prevent this, add `disable_pvt=1` to `/boot/cmdline.txt` and reboot the pi.
 
 ## Recommended Pin Mappings
-- **Raspberry Pi 1 Model A/B**: There are 2 PWM channels and only one (PWM0 through GPIO 18 alt function 5) is available on the pi header.
+- **Raspberry Pi 1 Model B**: There are 2 PWM channels and only one (PWM0 through GPIO 18 alt function 5) is available on the pi header.
 
-  ![Raspberry Pi 1 Model A/B Header](http://elinux.org/images/8/80/Pi-GPIO-header-26-sm.png)
+  ![Raspberry Pi 1 Model B Header](http://elinux.org/images/8/80/Pi-GPIO-header-26-sm.png)

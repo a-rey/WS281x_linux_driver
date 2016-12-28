@@ -1,4 +1,4 @@
-# Platform implementation notes
+# Platform Implementation Notes
 
 ### **BCM2835 (Raspberry Pi 1 model [A](https://www.raspberrypi.org/products/model-a/)/[B](https://www.raspberrypi.org/products/model-b/)/[A+](https://www.raspberrypi.org/products/model-a-plus/))**
 
