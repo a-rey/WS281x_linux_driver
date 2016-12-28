@@ -20,8 +20,8 @@
 #include <asm/page.h>     /* for PAGE_SIZE */
 
 #include <hal.h>          /* for interface definition and ROUND_UP */
+#include <WS281x.h>       /* for WS281x macros and user parameters */
 #include <BCM2835.h>      /* for platform specific addresses */
-#include <neopixel.h>     /* for pixel macros and user parameters */
 
 /* DMA control block definition */
 struct dma_cb_t {
@@ -64,6 +64,7 @@ static void gpio_config(uint32_t pin, uint32_t fun) {
   config |= (gpio_fun[fun] << offset);
   iowrite32(config, GPIO + reg);
   udelay(HW_DELAY_US);
+  printk(KERN_INFO "%s: (gpio_config) GPIO %d set to alternate function %d\n", DRIVER_NAME, pin, fun);
 }
 
 
@@ -77,11 +78,10 @@ static void pwm_stop(void) {
     iowrite32(0, PWM + PWM_CTL);
     udelay(HW_DELAY_US);
     // turn off the clock
-    iowrite32(CM_PWM_CTL_PASSWD | CM_PWM_CTL_KILL, CM + CM_PWM_CTL);
+    iowrite32((CM_PWM_CTL_PASSWD | ioread32(CM + CM_PWM_CTL)) & ~CM_PWM_CTL_ENAB, CM + CM_PWM_CTL);
     udelay(HW_DELAY_US);
-    while (ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_BUSY) {
-      printk(KERN_INFO "%s: (pwm_stop-wait) CM_PWM_CTL    = 0x%08x\n", DRIVER_NAME, ioread32(CM + CM_PWM_CTL));
-    }
+    // wait until the module settles
+    while (ioread32(CM + CM_PWM_CTL) & CM_PWM_CTL_BUSY);
   }
 }
 
@@ -93,7 +93,7 @@ static void pwm_start(void) {
   // stop the clock if it is in use
   pwm_stop();
   // setup the PWM clock manager to 3 x PIXEL_RATE
-  iowrite32(CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (NUM_BYTES_PER_PIXEL * PIXEL_RATE)), CM + CM_PWM_DIV);
+  iowrite32(CM_PWM_DIV_PASSWD | CM_PWM_DIV_DIVI(OSC_FREQ / (BYTES_PER_WS281x * WS281x_RATE)), CM + CM_PWM_DIV);
   udelay(HW_DELAY_US);
   // source the PWM clock from the oscillator with no MASH filtering
   iowrite32(CM_PWM_CTL_PASSWD | CM_PWM_CTL_MASH(0) | CM_PWM_CTL_SRC_OSC, CM + CM_PWM_CTL);
@@ -109,32 +109,9 @@ static void pwm_start(void) {
   // clear the FIFO
   iowrite32(PWM_CTL_CLRF1, PWM + PWM_CTL);
   udelay(HW_DELAY_US);
-  // enable DMA with PWM
-  iowrite32(PWM_DMAC_ENAB | PWM_DMAC_PANIC(7) | PWM_DMAC_DREQ(3), PWM + PWM_DMAC);
+  // enable DMA for PWM with alerts at (PWM_FIFO_SIZE / 2)
+  iowrite32(PWM_DMAC_ENAB | PWM_DMAC_PANIC(PWM_FIFO_SIZE / 2) | PWM_DMAC_DREQ(PWM_FIFO_SIZE / 2), PWM + PWM_DMAC);
   udelay(HW_DELAY_US);
-
-  // iowrite32(0x88888888, PWM + PWM_FIF1);
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  // iowrite32(0x88888888, PWM + PWM_FIF1);
-
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-
-  // iowrite32(0x88888888, PWM + PWM_FIF1);
-  // iowrite32(0x88888888, PWM + PWM_FIF1);
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-
-  // iowrite32(0x88888888, PWM + PWM_FIF1);
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-  // iowrite32(0x88888888, PWM + PWM_FIF1);
-  // iowrite32(0xCCCCCCCC, PWM + PWM_FIF1);
-
-  // iowrite32(0x88888888, PWM + PWM_FIF1);
-
   // configure PWM channel to send data serially out of the FIFO
   iowrite32(PWM_CTL_MODE1 | PWM_CTL_USEF1, PWM + PWM_CTL);
   udelay(HW_DELAY_US);
@@ -148,15 +125,13 @@ static void pwm_start(void) {
  * waits for any current DMA operation to complete then resets the DMA module
  */
 static void dma_stop(void) {
-  printk(KERN_INFO "%s: (dma_stop) (begin) DMA5_CS        = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
   // wait until any current DMA operation completes
   while ((ioread32(DMA5 + DMA5_CS) & DMA5_CS_ACTIVE) && !(ioread32(DMA5 + DMA5_CS) & DMA5_CS_ERROR)) {
-    printk(KERN_INFO "%s: (dma_stop) DMA operation in progress DMA5_CS = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
     udelay(HW_DELAY_US);
   }
   // check for errors
   if (ioread32(DMA5 + DMA5_CS) & DMA5_CS_ERROR) {
-    printk(KERN_INFO "%s: (dma_stop) DMA ERROR 0x%x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_DEBUG) & 0x7);
+    printk(KERN_ALERT "%s: (dma_stop) DMA ERROR 0x%x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_DEBUG) & 0x7);
   }
   // reset the DMA module
   iowrite32(DMA5_CS_RESET, DMA5 + DMA5_CS);
@@ -164,7 +139,6 @@ static void dma_stop(void) {
   // clear old status flags
   iowrite32(DMA5_CS_END | DMA5_CS_INT, DMA5 + DMA5_CS);
   udelay(HW_DELAY_US);
-  printk(KERN_INFO "%s: (dma_stop) (end) DMA5_CS          = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
   // clear old error flags
   iowrite32(DMA5_DEBUG_READ_ERROR | DMA5_DEBUG_FIFO_ERROR | DMA5_DEBUG_READ_LAST_NOT_SET_ERROR, DMA5 + DMA5_DEBUG);
   udelay(HW_DELAY_US);
@@ -175,22 +149,12 @@ static void dma_stop(void) {
  * takes a complete control block and issues it to the DMA module
  */
 static void dma_start(void) {
-  printk(KERN_INFO "%s: (dma_start) (begin) DMA5_CS       = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
   // set the new DMA control block physical address
   iowrite32((uint32_t)virt_to_phys(dma_cb), DMA5 + DMA5_CONBLK_AD);
   udelay(HW_DELAY_US);
-  printk(KERN_INFO "%s: (dma_start) ~ dma_cb address      = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CONBLK_AD));
-  printk(KERN_INFO "%s: (dma_start)     dma_cb->ti        = 0x%08x\n", DRIVER_NAME, dma_cb->ti);
-  printk(KERN_INFO "%s: (dma_start)     dma_cb->source_ad = 0x%08x\n", DRIVER_NAME, dma_cb->source_ad);
-  printk(KERN_INFO "%s: (dma_start)     dma_cb->dest_ad   = 0x%08x\n", DRIVER_NAME, dma_cb->dest_ad);
-  printk(KERN_INFO "%s: (dma_start)     dma_cb->txfr_len  = 0x%08x\n", DRIVER_NAME, dma_cb->txfr_len);
-  printk(KERN_INFO "%s: (dma_start)     dma_cb->stride    = 0x%08x\n", DRIVER_NAME, dma_cb->stride);
-  printk(KERN_INFO "%s: (dma_start)     dma_cb->nextconbk = 0x%08x\n", DRIVER_NAME, dma_cb->nextconbk);
   // begin the DMA transfer with max AXI priority (15)
   iowrite32(DMA5_CS_WAIT_OUTSTANDING_WRITES | DMA5_CS_PANIC_PRIORITY(15) | DMA5_CS_PRIORITY(15) | DMA5_CS_ACTIVE, DMA5 + DMA5_CS);
   udelay(HW_DELAY_US);
-  printk(KERN_INFO "%s: (dma_start) (end) DMA5_CONBLK_AD  = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CONBLK_AD));
-  printk(KERN_INFO "%s: (dma_start) (end) DMA5_CS         = 0x%08x\n", DRIVER_NAME, ioread32(DMA5 + DMA5_CS));
 }
 
 
@@ -203,21 +167,19 @@ int hal_init(void) {
   // allocate space for the control block
   dma_cb = (struct dma_cb_t *)__get_free_pages(GFP_KERNEL, sizeof(struct dma_cb_t) / PAGE_SIZE);
   if (IS_ERR(dma_cb)) {
-    printk(KERN_INFO "%s: (hal_init) __get_free_pages error 0x%p\n", DRIVER_NAME, dma_cb);
+    printk(KERN_ALERT "%s: (hal_init) __get_free_pages error 0x%p\n", DRIVER_NAME, dma_cb);
     return -ENOMEM;
   }
-  printk(KERN_INFO "%s: (hal_init) dma_cb length          = %d pages\n", DRIVER_NAME, 1 << (sizeof(struct dma_cb_t) / PAGE_SIZE));
   // zero out the control block
   memset(dma_cb, 0, sizeof(struct dma_cb_t));
   // find out how many bytes are needed in the buffer
-  kbuf_len = ROUND_UP((num_pixels * PIXEL_DATA_LEN * NUM_BYTES_PER_PIXEL) + PIXEL_RESET_PADDING(NUM_BYTES_PER_PIXEL), sizeof(uint32_t));
+  kbuf_len = ROUND_UP((num_leds * WS281x_DATA_LEN * BYTES_PER_WS281x) + WS281x_RESET_PADDING(BYTES_PER_WS281x), sizeof(uint32_t));
   // allocate the buffer needed for streaming user data to the PWM module
   kbuf = (char *)__get_free_pages(GFP_KERNEL, kbuf_len / PAGE_SIZE);
   if (IS_ERR(kbuf)) {
     printk(KERN_INFO "%s: (hal_init) __get_free_pages error 0x%p\n", DRIVER_NAME, kbuf);
     return -ENOMEM;
   }
-  printk(KERN_INFO "%s: (hal_init) internal buffer length = %d bytes, %d pages\n", DRIVER_NAME, kbuf_len, 1 << (kbuf_len / PAGE_SIZE));
   // store the physical address of the empty PWM buffer into the DMA control block
   dma_cb->source_ad = (uint32_t)virt_to_phys(kbuf);
   // set the destination address to be the hardware buss address of the PWM FIFO
@@ -244,17 +206,17 @@ void hal_render(char *buf, size_t len) {
   int i, j;
   // convert the user buffer into the PWM buffer
   j = 0;
-  for (i = 0, j = 0; i < len; i++, j+=NUM_BYTES_PER_PIXEL) {
-    kbuf[j]      = (buf[i] & (1 << 7)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-    kbuf[j]     |= (buf[i] & (1 << 6)) ? PIXEL_1 : PIXEL_0;
-    kbuf[j + 1]  = (buf[i] & (1 << 5)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-    kbuf[j + 1] |= (buf[i] & (1 << 4)) ? PIXEL_1 : PIXEL_0;
-    kbuf[j + 2]  = (buf[i] & (1 << 3)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-    kbuf[j + 2] |= (buf[i] & (1 << 2)) ? PIXEL_1 : PIXEL_0;
-    kbuf[j + 3]  = (buf[i] & (1 << 1)) ? (PIXEL_1 << 4) : (PIXEL_0 << 4);
-    kbuf[j + 3] |= (buf[i] & (1 << 0)) ? PIXEL_1 : PIXEL_0;
+  for (i = 0, j = 0; i < len; i++, j+=BYTES_PER_WS281x) {
+    kbuf[j]      = (buf[i] & (1 << 7)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j]     |= (buf[i] & (1 << 6)) ? WS281x_1 : WS281x_0;
+    kbuf[j + 1]  = (buf[i] & (1 << 5)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j + 1] |= (buf[i] & (1 << 4)) ? WS281x_1 : WS281x_0;
+    kbuf[j + 2]  = (buf[i] & (1 << 3)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j + 2] |= (buf[i] & (1 << 2)) ? WS281x_1 : WS281x_0;
+    kbuf[j + 3]  = (buf[i] & (1 << 1)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j + 3] |= (buf[i] & (1 << 0)) ? WS281x_1 : WS281x_0;
   }
-  // zero out remaining space for the pixel RESET signal
+  // zero out remaining space for the WS281x RESET signal
   memset(kbuf + j, 0, (dma_cb->txfr_len) - j);
   // send the control block to DMA for transfer
   dma_stop();

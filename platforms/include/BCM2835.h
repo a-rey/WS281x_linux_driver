@@ -11,8 +11,8 @@
  * Aaron Reyes
  */
 
-#ifndef _NEOPIXEL_BCM2835_H_
-#define _NEOPIXEL_BCM2835_H_
+#ifndef _WS281x_BCM2835_H_
+#define _WS281x_BCM2835_H_
 
 /* converts an address to a bus address */
 #define BUS_ADDRESS(x) (((x) & 0x00FFFFFF) | 0x7E000000)
@@ -20,12 +20,12 @@
 /* rate of the oscillator crystal is 19.2MHz */
 #define OSC_FREQ 19200000 // hz
 
-/* number of bytes that is used to represent a pixel internally */
-#define NUM_BYTES_PER_PIXEL 4
+/* number of bytes that is used to represent a WS281x LED internally */
+#define BYTES_PER_WS281x 4
 
-/* constants used to define a 1/0 as seen by the pixel in the PWM buffer */
-#define PIXEL_1 ((char)0xC) // 1100
-#define PIXEL_0 ((char)0x8) // 1000
+/* constants used to define a 1/0 as seen by the WS281x LED in the PWM buffer */
+#define WS281x_1 ((char)0xC) // 1100
+#define WS281x_0 ((char)0x8) // 1000
 
 /* hardware timing delay */
 #define HW_DELAY_US 10 // microseconds
@@ -195,4 +195,4 @@
 #define DMA5_DEBUG_FIFO_ERROR              (1 << 1)
 #define DMA5_DEBUG_READ_LAST_NOT_SET_ERROR (1 << 0)
 
-#endif /* _NEOPIXEL_BCM2835_H_ */
+#endif /* _WS281x_BCM2835_H_ */
