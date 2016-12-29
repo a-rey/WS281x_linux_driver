@@ -23,7 +23,7 @@ int hal_init(void);
  * buf - the user supplied buffer copied into kernel memory
  * len - length of buf
  */
-void hal_render(char *buf, size_t len);
+void hal_render(const char *buf, size_t len);
 
 /*
  * un-initializes the hardware interface

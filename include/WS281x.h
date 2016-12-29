@@ -9,6 +9,8 @@
 #ifndef _WS281x_H_
 #define _WS281x_H_
 
+#include <linux/mutex.h> /* required for the mutex functionality */
+
 #define DRIVER_NAME    "ws281x"
 #define DRIVER_VERSION "0.1"
 #define DRIVER_AUTHOR  "Aaron Reyes"
@@ -24,6 +26,9 @@
 /* number of bytes for the RESET signal (55us) */
 // takes the number of bytes used per pixel by the driver internals
 #define WS281x_RESET_PADDING(x) (((55 * (x) * WS281x_RATE) / 1000000) >> 3) // bytes
+
+/* kernel module level mutex for access */
+extern struct mutex ws281x_mutex;
 
 /* number of WS281x LEDs currently under control */
 extern int num_leds;

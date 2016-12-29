@@ -30,10 +30,11 @@ def colorWipe(color, delay):
     ws281x_leds.render()
     sleep(delay)
 
-# # call the routine with some colors
-# colorWipe(red, 0.05)   # 50ms delay
-# colorWipe(green, 0.05) # 50ms delay
-# colorWipe(blue, 0.05)  # 50ms delay
+# call the routine with some colors
+for x in xrange(4):
+  colorWipe(red, 0.05)   # 30ms delay
+  colorWipe(green, 0.05) # 30ms delay
+  colorWipe(blue, 0.05)  # 30ms delay
 
 # unload the kernel module and cleanup
 del ws281x_leds

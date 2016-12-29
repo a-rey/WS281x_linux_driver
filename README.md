@@ -1,5 +1,12 @@
 # WS281x kernel module
-Linux kernel module to control WS281x LEDs
+Linux kernel module to control WS281x LEDs.
+
+TODO:
+- port to BCM2836 for RPI2
+- clean up python module with better error handling for when user forgets to close file/unload module
+- check module GPIO ping/func to the hardware in `init()`
+- add more python library examples
+- add python library documentation to README
 
 ### Usage
 Bare metal usage is the following:
@@ -16,7 +23,7 @@ pin_num: GPIO pin to set as the PWM output (int)
 pin_fun: GPIO pin alternate function (int)
 ```
 
-Example python script usage for Raspberry Pi 1 model A/B/A+ using BCM2835 SoC chip hardware with a strand of 30 WS281x LEDs:
+Once loaded, write a string of binary data to `/dev/ws281x` to control your WS281x LEDs. Example python script usage for Raspberry Pi 1 model A/B/A+ using BCM2835 SoC chip hardware with a strand of 30 WS281x LEDs:
 
 ```
 import subprocess
@@ -29,7 +36,7 @@ subprocess.call(["insmod", "ws281x.ko",
                            "num_leds={0}".format(num_leds),
                            "pin_num={0}".format(pin_num),
                            "pin_fun={0}".format(pin_fun)])
-f = open('/dev/ws281x', 'r+')
+f = open('/dev/ws281x', 'r+b', 0)
 f.write("\x00\xFF\x00\xFF\xFF\xFF\x00\x00\xFF" * (num_leds / 3)) # red, white, and blue repeating
 f.close()
 subprocess.call(["rmmod", "ws281x"])

@@ -6,6 +6,7 @@
  * Aaron Reyes
  */
 
+#include <linux/mutex.h>       /* required for the mutex functionality */
 #include <linux/module.h>      /* for module_init/exit */
 #include <linux/moduleparam.h> /* for module_param */
 #include <linux/kernel.h>      /* for printk KERN_INFO */
@@ -13,6 +14,9 @@
 
 #include <fs.h>                /* for fs interface */
 #include <WS281x.h>            /* for MODULE_* macros and num_leds */
+
+/* module mutex */
+struct mutex ws281x_mutex;
 
 /*
  * module parameter registration
@@ -37,7 +41,7 @@ static int __init init(void) {
     printk(KERN_ALERT "%s: (init) invalid number of WS281x LEDs %d\n", DRIVER_NAME, num_leds);
     return -1;
   }
-  // todo: check the GPIO pin/function to the hardware
+  mutex_init(&ws281x_mutex);
   return init_fs();
 }
 
@@ -48,6 +52,7 @@ static int __init init(void) {
 static void __exit cleanup(void) {
   printk(KERN_INFO "%s: (cleanup) uninitializing...\n", DRIVER_NAME);
   cleanup_fs();
+  mutex_destroy(&ws281x_mutex);
 }
 
 

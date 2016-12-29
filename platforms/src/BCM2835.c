@@ -192,33 +192,35 @@ int hal_init(void) {
   // no 2D stride and make sure there is no other chained control block
   dma_cb->stride = 0;
   dma_cb->nextconbk = 0;
+  // stop the clock if it is in use
+  pwm_stop();
+  // start the PWM generation
+  pwm_start();
   // configure GPIO pin to the correct function for PWM output
   gpio_config(pin_num, pin_fun);
   return 0;
 }
 
 
-void hal_render(char *buf, size_t len) {
+void hal_render(const char *buf, size_t len) {
   int i, j;
+  // wait for any DMA transfer in progress to finish
+  dma_stop();
   // convert the user buffer into the PWM buffer
   j = 0;
   for (i = 0, j = 0; i < len; i++, j+=BYTES_PER_WS281x) {
-    kbuf[j]      = (buf[i] & (1 << 7)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
-    kbuf[j]     |= (buf[i] & (1 << 6)) ? WS281x_1 : WS281x_0;
-    kbuf[j + 1]  = (buf[i] & (1 << 5)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
-    kbuf[j + 1] |= (buf[i] & (1 << 4)) ? WS281x_1 : WS281x_0;
-    kbuf[j + 2]  = (buf[i] & (1 << 3)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
-    kbuf[j + 2] |= (buf[i] & (1 << 2)) ? WS281x_1 : WS281x_0;
-    kbuf[j + 3]  = (buf[i] & (1 << 1)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
-    kbuf[j + 3] |= (buf[i] & (1 << 0)) ? WS281x_1 : WS281x_0;
+    kbuf[j + 3]  = (buf[i] & (1 << 7)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j + 3] |= (buf[i] & (1 << 6)) ? WS281x_1 : WS281x_0;
+    kbuf[j + 2]  = (buf[i] & (1 << 5)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j + 2] |= (buf[i] & (1 << 4)) ? WS281x_1 : WS281x_0;
+    kbuf[j + 1]  = (buf[i] & (1 << 3)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j + 1] |= (buf[i] & (1 << 2)) ? WS281x_1 : WS281x_0;
+    kbuf[j + 0]  = (buf[i] & (1 << 1)) ? (WS281x_1 << 4) : (WS281x_0 << 4);
+    kbuf[j + 0] |= (buf[i] & (1 << 0)) ? WS281x_1 : WS281x_0;
   }
   // zero out remaining space for the WS281x RESET signal
   memset(kbuf + j, 0, (dma_cb->txfr_len) - j);
-  // start the PWM generation
-  pwm_stop(); // stop the clock if it is in use
-  pwm_start();
   // send the control block to DMA for transfer
-  dma_stop();
   dma_start();
 }
 

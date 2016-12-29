@@ -9,12 +9,6 @@ import subprocess
 
 MODULE_NAME = "ws281x"
 
-# todo: nice error handling to check if module is loaded before trying to load it again
-
-def check_color(x):
-  if (type(x) is not int) or (x > 0xFF) or (x < 0 ):
-      raise ValueError("Invalid color value: {0}".format(x))
-
 
 class Color(object):
   """
@@ -23,10 +17,6 @@ class Color(object):
 
   def __init__(self, R, G, B):
     super(Color, self).__init__()
-    # check values
-    check_color(R)
-    check_color(G)
-    check_color(B)
     self.R = R
     self.G = G
     self.B = B
@@ -41,22 +31,24 @@ class Color(object):
     return self.G
 
   def setGreen(self, G):
-    check_color(G)
     self.G = G
 
   def getRed(self):
     return self.G
 
   def setRed(self, R):
-    check_color(R)
     self.R = R
 
   def getBlue(self):
     return self.B
 
   def setBlue(self, B):
-    check_color(B)
     self.B = B
+
+  def setRGB(self, R, G, B):
+    self.setRed(R)
+    self.setGreen(G)
+    self.setBlue(B)
 
 
 
@@ -85,33 +77,32 @@ class LEDs(object):
     # check command status
     if ret != 0:
       raise ValueError("Failed to load module")
-    self.module = open("/dev/{0}".format(MODULE_NAME), 'r+')
+    # open file for:
+    #  - binary writing
+    #  - no truncate on opening (appending)
+    #  - 0 buffer size (auto-flushing)
+    self.module = open("/dev/{0}".format(MODULE_NAME), 'r+b', 0)
 
   def __del__(self):
     # close the file and remove the kernel module
     self.module.close()
     subprocess.call(["rmmod", MODULE_NAME])
 
+  def setColorRGB(self, led, R, G, B):
+    self.leds[led].setRed(R)
+    self.leds[led].setGreen(G)
+    self.leds[led].setBlue(B)
+
   def setColor(self, led, color):
-    # check values
-    if led >= len(self.leds):
-      raise ValueError("Invalid led index: {0}".format(led))
-    check_color(color.getRed())
-    check_color(color.getGreen())
-    check_color(color.getBlue())
     # set the correct LED
     self.leds[led] = color
 
   def getColor(self, led):
-    if led >= len(self.leds):
-      raise ValueError("Invalid led index: {0}".format(led))
     return self.leds[led]
 
   def getNumLEDs(self):
     return self.num_leds
 
   def render(self):
-    buf = [led.serialize() for led in self.leds]
-    print buf
-    self.module.write("".join(buf))
+    self.module.write("".join([led.serialize() for led in self.leds]))
 
